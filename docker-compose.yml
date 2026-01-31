@@ -1,0 +1,22 @@
+services:
+  vue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: homeorder-vue
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://homeorder-nginx:80
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+      - homeorder-network
+
+networks:
+  homeorder-network:
+    external: true
+    name: app_homeorder-network
