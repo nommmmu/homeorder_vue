@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { authApi } from '@/api/client'
+import { authApi, memberApi } from '@/api/client'
 import router from '@/router'
 
 interface User {
@@ -8,7 +8,14 @@ interface User {
   email: string
   name: string
   avatar_icon?: string
-  family_id: string
+  family_id: string | null
+  current_member_id: string | null
+}
+
+interface SimpleMember {
+  id: string
+  name: string
+  avatar_icon: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -16,10 +23,36 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(
     localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null
   )
+  const members = ref<SimpleMember[]>(
+    localStorage.getItem('members') ? JSON.parse(localStorage.getItem('members')!) : []
+  )
+  const currentMember = ref<SimpleMember | null>(
+    localStorage.getItem('current_member') ? JSON.parse(localStorage.getItem('current_member')!) : null
+  )
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   const isAuthenticated = computed(() => !!token.value)
+  const hasSelectedMember = computed(() => !!currentMember.value)
+  const hasMembers = computed(() => members.value.length > 0)
+
+  function saveToStorage() {
+    if (token.value) localStorage.setItem('auth_token', token.value)
+    if (user.value) localStorage.setItem('user', JSON.stringify(user.value))
+    localStorage.setItem('members', JSON.stringify(members.value))
+    if (currentMember.value) {
+      localStorage.setItem('current_member', JSON.stringify(currentMember.value))
+    } else {
+      localStorage.removeItem('current_member')
+    }
+  }
+
+  function clearStorage() {
+    localStorage.removeItem('auth_token')
+    localStorage.removeItem('user')
+    localStorage.removeItem('members')
+    localStorage.removeItem('current_member')
+  }
 
   async function login(email: string, password: string) {
     loading.value = true
@@ -27,16 +60,17 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const response = await authApi.login(email, password)
-      const data = response.data.data
+      const data = response.data
 
       token.value = data.token
       user.value = data.user
+      members.value = data.members || []
+      currentMember.value = data.current_member || null
 
-      localStorage.setItem('auth_token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
+      saveToStorage()
 
-      const redirect = router.currentRoute.value.query.redirect as string
-      router.push(redirect || '/')
+      // メンバー選択画面へリダイレクト
+      router.push('/member-select')
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } }
       error.value = axiosError.response?.data?.message || 'ログインに失敗しました'
@@ -57,15 +91,17 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       const response = await authApi.signup(data)
-      const responseData = response.data.data
+      const responseData = response.data
 
       token.value = responseData.token
       user.value = responseData.user
+      members.value = responseData.members || []
+      currentMember.value = responseData.current_member || null
 
-      localStorage.setItem('auth_token', responseData.token)
-      localStorage.setItem('user', JSON.stringify(responseData.user))
+      saveToStorage()
 
-      router.push('/')
+      // メンバー選択画面へリダイレクト
+      router.push('/member-select')
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } }
       error.value = axiosError.response?.data?.message || '登録に失敗しました'
@@ -83,8 +119,9 @@ export const useAuthStore = defineStore('auth', () => {
     } finally {
       token.value = null
       user.value = null
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('user')
+      members.value = []
+      currentMember.value = null
+      clearStorage()
       router.push('/login')
     }
   }
@@ -100,20 +137,81 @@ export const useAuthStore = defineStore('auth', () => {
       // Token invalid, clear auth
       token.value = null
       user.value = null
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('user')
+      members.value = []
+      currentMember.value = null
+      clearStorage()
+    }
+  }
+
+  async function fetchCurrentMember() {
+    if (!token.value) return
+
+    try {
+      const response = await memberApi.current()
+      const data = response.data.data
+
+      if (data.member) {
+        currentMember.value = data.member
+        localStorage.setItem('current_member', JSON.stringify(data.member))
+      } else {
+        currentMember.value = null
+        localStorage.removeItem('current_member')
+      }
+
+      return data
+    } catch (err) {
+      console.error('Failed to fetch current member:', err)
+      return null
+    }
+  }
+
+  async function selectMember(memberId: string) {
+    try {
+      const response = await memberApi.select(memberId)
+      const member = response.data.data.member
+
+      currentMember.value = member
+      if (user.value) {
+        user.value.current_member_id = member.id
+      }
+
+      saveToStorage()
+
+      return member
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } }
+      throw new Error(axiosError.response?.data?.message || 'メンバー選択に失敗しました')
+    }
+  }
+
+  async function refreshMembers() {
+    if (!token.value) return
+
+    try {
+      const response = await memberApi.list()
+      members.value = response.data.data.members || []
+      localStorage.setItem('members', JSON.stringify(members.value))
+    } catch (err) {
+      console.error('Failed to refresh members:', err)
     }
   }
 
   return {
     token,
     user,
+    members,
+    currentMember,
     loading,
     error,
     isAuthenticated,
+    hasSelectedMember,
+    hasMembers,
     login,
     signup,
     logout,
     fetchUser,
+    fetchCurrentMember,
+    selectMember,
+    refreshMembers,
   }
 })

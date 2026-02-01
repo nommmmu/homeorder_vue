@@ -40,14 +40,14 @@ export default apiClient
 // API functions
 export const authApi = {
   login: (email: string, password: string) =>
-    apiClient.post('/auth/login', { email, password }),
+    apiClient.post('/login', { email, password }),
 
   signup: (data: { email: string; password: string; password_confirmation: string; name: string }) =>
-    apiClient.post('/auth/signup', data),
+    apiClient.post('/signup', data),
 
-  logout: () => apiClient.post('/auth/logout'),
+  logout: () => apiClient.post('/logout'),
 
-  me: () => apiClient.get('/auth/me'),
+  me: () => apiClient.get('/user'),
 }
 
 export const recipeApi = {
@@ -122,4 +122,32 @@ export const memberApi = {
     apiClient.put(`/members/${id}`, data),
 
   delete: (id: string) => apiClient.delete(`/members/${id}`),
+
+  select: (id: string) => apiClient.post(`/members/${id}/select`),
+
+  current: () => apiClient.get('/members/current'),
+}
+
+export const userApi = {
+  updateProfile: (data: { name?: string; avatar_icon?: string }) =>
+    apiClient.put('/users/profile', data),
+
+  updateSettings: (data: { appearance_mode?: string; push_notifications?: boolean }) =>
+    apiClient.put('/users/settings', data),
+}
+
+export const uploadApi = {
+  uploadImage: (file: File, type: 'avatar' | 'recipe' | 'general') => {
+    const formData = new FormData()
+    formData.append('image', file)
+    formData.append('type', type)
+    return apiClient.post('/upload/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+  },
+
+  deleteImage: (path: string) =>
+    apiClient.delete('/upload/image', { data: { path } }),
 }

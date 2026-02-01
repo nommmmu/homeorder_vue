@@ -9,6 +9,7 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+      meta: { requiresAuth: true, requiresMember: true },
     },
     {
       path: '/login',
@@ -23,28 +24,46 @@ const router = createRouter({
       meta: { guest: true },
     },
     {
+      path: '/member-select',
+      name: 'member-select',
+      component: () => import('@/views/MemberSelectView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/recipes',
       name: 'recipes',
       component: () => import('@/views/RecipesView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresMember: true },
     },
     {
       path: '/recipes/:id',
       name: 'recipe-detail',
       component: () => import('@/views/RecipeDetailView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresMember: true },
     },
     {
       path: '/meal-plans',
       name: 'meal-plans',
       component: () => import('@/views/MealPlansView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresMember: true },
     },
     {
       path: '/requests',
       name: 'requests',
       component: () => import('@/views/RequestsView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresMember: true },
+    },
+    {
+      path: '/members',
+      name: 'members',
+      component: () => import('@/views/MembersView.vue'),
+      meta: { requiresAuth: true, requiresMember: true },
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('@/views/SettingsView.vue'),
+      meta: { requiresAuth: true, requiresMember: true },
     },
   ],
 })
@@ -52,13 +71,25 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
 
+  // ゲストページ（ログイン・サインアップ）
+  if (to.meta.guest && authStore.isAuthenticated) {
+    next({ name: 'member-select' })
+    return
+  }
+
+  // 認証が必要なページ
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } })
-  } else if (to.meta.guest && authStore.isAuthenticated) {
-    next({ name: 'home' })
-  } else {
-    next()
+    return
   }
+
+  // メンバー選択が必要なページ
+  if (to.meta.requiresMember && authStore.isAuthenticated && !authStore.hasSelectedMember) {
+    next({ name: 'member-select' })
+    return
+  }
+
+  next()
 })
 
 export default router

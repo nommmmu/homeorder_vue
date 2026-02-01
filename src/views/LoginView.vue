@@ -22,6 +22,7 @@ async function handleSubmit() {
   <div class="login-page">
     <div class="login-card card">
       <h2>ログイン</h2>
+      <p class="card-subtitle">アカウントにサインイン</p>
 
       <div v-if="errorMessage" class="alert alert-error">
         {{ errorMessage }}
@@ -46,14 +47,18 @@ async function handleSubmit() {
             id="password"
             v-model="password"
             type="password"
-            placeholder="パスワード"
+            placeholder="パスワードを入力"
             required
             autocomplete="current-password"
           />
         </div>
 
         <button type="submit" class="btn btn-primary btn-full" :disabled="authStore.loading">
-          {{ authStore.loading ? 'ログイン中...' : 'ログイン' }}
+          <span v-if="authStore.loading" class="btn-loading">
+            <span class="spinner-small"></span>
+            ログイン中...
+          </span>
+          <span v-else>ログイン</span>
         </button>
       </form>
 
@@ -71,6 +76,7 @@ async function handleSubmit() {
   justify-content: center;
   align-items: center;
   min-height: calc(100vh - 200px);
+  padding: 2rem 1rem;
 }
 
 .login-card {
@@ -79,16 +85,58 @@ async function handleSubmit() {
 }
 
 .login-card h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.card-subtitle {
   margin: 0 0 1.5rem;
-  text-align: center;
+  color: var(--color-text-light);
+  font-size: 0.875rem;
 }
 
 .btn-full {
   width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.875rem;
+}
+
+.btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .signup-link {
-  text-align: center;
   margin: 1.5rem 0 0;
+  text-align: center;
+  color: var(--color-text-light);
+  font-size: 0.875rem;
+}
+
+.signup-link a {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.signup-link a:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
 }
 </style>

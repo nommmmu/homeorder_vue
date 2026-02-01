@@ -3,7 +3,8 @@ export interface User {
   email: string
   name: string
   avatar_icon?: string
-  family_id: string
+  family_id: string | null
+  current_member_id: string | null
   created_at: string
 }
 
