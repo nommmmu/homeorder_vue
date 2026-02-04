@@ -27,9 +27,15 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
+      // 認証エラー時はすべての認証情報をクリア
       localStorage.removeItem('auth_token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      localStorage.removeItem('members')
+      localStorage.removeItem('current_member')
+      // ログインページ以外にいる場合のみリダイレクト
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }

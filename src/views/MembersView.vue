@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { memberApi } from '@/api/client'
 import type { Member } from '@/types'
-import ImageUpload from '@/components/ImageUpload.vue'
+import IconPicker from '@/components/IconPicker.vue'
 
 const members = ref<Member[]>([])
 const loading = ref(true)
@@ -10,15 +10,11 @@ const showModal = ref(false)
 const editingMember = ref<Member | null>(null)
 const saving = ref(false)
 const error = ref('')
-const useImageAvatar = ref(false)
 
 const formData = ref({
   name: '',
   avatar_icon: '👤',
-  avatar_image: '',
 })
-
-const avatarOptions = ['👤', '👩', '👨', '👧', '👦', '👶', '🧑', '👵', '👴', '🐱', '🐶', '🐰', '🦊', '🐻', '🐼', '🐨']
 
 const isFormValid = computed(() => {
   return formData.value.name.trim().length > 0
@@ -47,20 +43,16 @@ async function loadMembers() {
 function openCreateModal() {
   if (!canAddMember.value) return
   editingMember.value = null
-  useImageAvatar.value = false
-  formData.value = { name: '', avatar_icon: '👤', avatar_image: '' }
+  formData.value = { name: '', avatar_icon: '👤' }
   error.value = ''
   showModal.value = true
 }
 
 function openEditModal(member: Member) {
   editingMember.value = member
-  const hasImage = member.avatar_icon?.startsWith('http') || member.avatar_icon?.includes('/')
-  useImageAvatar.value = hasImage
   formData.value = {
     name: member.name,
-    avatar_icon: hasImage ? '👤' : (member.avatar_icon || '👤'),
-    avatar_image: hasImage ? (member.avatar_icon || '') : '',
+    avatar_icon: member.avatar_icon || '👤',
   }
   error.value = ''
   showModal.value = true
@@ -81,7 +73,7 @@ async function saveMember() {
   try {
     const data = {
       name: formData.value.name,
-      avatar_icon: useImageAvatar.value ? formData.value.avatar_image : formData.value.avatar_icon,
+      avatar_icon: formData.value.avatar_icon,
     }
     if (editingMember.value) {
       await memberApi.update(editingMember.value.id, data)
@@ -96,10 +88,6 @@ async function saveMember() {
   } finally {
     saving.value = false
   }
-}
-
-function handleImageUploaded(data: { url: string }) {
-  formData.value.avatar_image = data.url
 }
 
 function isImageUrl(icon: string | undefined): boolean {
@@ -216,47 +204,11 @@ onMounted(() => {
         <form @submit.prevent="saveMember">
           <div class="form-group">
             <label>アイコン</label>
-            <div class="avatar-type-toggle">
-              <button
-                type="button"
-                class="toggle-btn"
-                :class="{ active: !useImageAvatar }"
-                @click="useImageAvatar = false"
-              >
-                絵文字
-              </button>
-              <button
-                type="button"
-                class="toggle-btn"
-                :class="{ active: useImageAvatar }"
-                @click="useImageAvatar = true"
-              >
-                画像
-              </button>
-            </div>
-
-            <div v-if="!useImageAvatar" class="avatar-picker">
-              <button
-                v-for="avatar in avatarOptions"
-                :key="avatar"
-                type="button"
-                class="avatar-btn"
-                :class="{ selected: formData.avatar_icon === avatar }"
-                @click="formData.avatar_icon = avatar"
-              >
-                {{ avatar }}
-              </button>
-            </div>
-
-            <div v-else class="avatar-upload">
-              <ImageUpload
-                v-model="formData.avatar_image"
-                type="avatar"
-                size="medium"
-                placeholder="アイコン画像"
-                @uploaded="handleImageUploaded"
-              />
-            </div>
+            <IconPicker
+              v-model="formData.avatar_icon"
+              type="avatar"
+              size="medium"
+            />
           </div>
 
           <div class="form-group">
@@ -433,66 +385,6 @@ onMounted(() => {
 
 .modal-close:hover {
   color: var(--color-text);
-}
-
-.avatar-type-toggle {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.toggle-btn {
-  flex: 1;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.toggle-btn:hover {
-  border-color: var(--color-primary);
-}
-
-.toggle-btn.active {
-  border-color: var(--color-primary);
-  background: #fff3e0;
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.avatar-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.avatar-upload {
-  margin-bottom: 0.5rem;
-}
-
-.avatar-btn {
-  width: 48px;
-  height: 48px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
-  font-size: 1.5rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.avatar-btn:hover {
-  border-color: var(--color-primary);
-  background: #fff3e0;
-}
-
-.avatar-btn.selected {
-  border-color: var(--color-primary);
-  background: #fff3e0;
-  box-shadow: 0 0 0 2px rgba(255, 112, 67, 0.2);
 }
 
 .required {

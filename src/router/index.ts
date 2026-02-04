@@ -65,26 +65,44 @@ const router = createRouter({
       component: () => import('@/views/SettingsView.vue'),
       meta: { requiresAuth: true, requiresMember: true },
     },
+    // 404 Not Found - 最後に配置
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/NotFoundView.vue'),
+    },
   ],
 })
 
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
 
-  // ゲストページ（ログイン・サインアップ）
-  if (to.meta.guest && authStore.isAuthenticated) {
-    next({ name: 'member-select' })
+  // 未認証の場合
+  if (!authStore.isAuthenticated) {
+    // ゲストページ（ログイン・サインアップ）はOK
+    if (to.meta.guest) {
+      next()
+      return
+    }
+    // それ以外（404含む）はすべてログインページへリダイレクト
+    next({ name: 'login' })
     return
   }
 
-  // 認証が必要なページ
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
+  // 認証済みの場合
+  // ゲストページにアクセスしようとした場合
+  if (to.meta.guest) {
+    // メンバー選択済みならホームへ、未選択ならメンバー選択へ
+    if (authStore.hasSelectedMember) {
+      next({ name: 'home' })
+    } else {
+      next({ name: 'member-select' })
+    }
     return
   }
 
   // メンバー選択が必要なページ
-  if (to.meta.requiresMember && authStore.isAuthenticated && !authStore.hasSelectedMember) {
+  if (to.meta.requiresMember && !authStore.hasSelectedMember) {
     next({ name: 'member-select' })
     return
   }

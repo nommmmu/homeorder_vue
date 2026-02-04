@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { recipeApi } from '@/api/client'
 import type { Recipe, Pagination, Ingredient, Step } from '@/types'
-import ImageUpload from '@/components/ImageUpload.vue'
+import IconPicker from '@/components/IconPicker.vue'
 
 const recipes = ref<Recipe[]>([])
 const pagination = ref<Pagination | null>(null)
@@ -16,7 +16,6 @@ const emptyRecipe = () => ({
   name: '',
   description: '',
   image_icon: '🍽️',
-  image_url: '',
   cooking_time: 30,
   servings: 2,
   difficulty: 'medium' as const,
@@ -28,9 +27,8 @@ const emptyRecipe = () => ({
 
 const newRecipe = ref(emptyRecipe())
 const newTag = ref('')
-const useImageIcon = ref(false)
 
-const emojiOptions = ['🍽️', '🍳', '🍲', '🍜', '🍝', '🍛', '🍣', '🍱', '🥗', '🍔', '🍕', '🥘', '🍰', '🍩', '☕', '🥤']
+const recipeEmojiOptions = ['🍽️', '🍳', '🍲', '🍜', '🍝', '🍛', '🍣', '🍱', '🥗', '🍔', '🍕', '🥘', '🍰', '🍩', '☕', '🥤']
 
 const isFormValid = computed(() => {
   return newRecipe.value.name.trim().length > 0
@@ -69,7 +67,6 @@ async function searchRecipes() {
 
 function openCreateModal() {
   newRecipe.value = emptyRecipe()
-  useImageIcon.value = false
   createError.value = ''
   showCreateModal.value = true
 }
@@ -86,10 +83,14 @@ async function createRecipe() {
   createError.value = ''
 
   try {
+    // 画像URLかどうかを判定
+    const iconValue = newRecipe.value.image_icon
+    const isImage = iconValue.startsWith('http') || iconValue.startsWith('/storage/') || iconValue.includes('/')
+
     const recipeData = {
       ...newRecipe.value,
-      image_icon: useImageIcon.value ? undefined : newRecipe.value.image_icon,
-      image_url: useImageIcon.value ? newRecipe.value.image_url : undefined,
+      image_icon: isImage ? undefined : iconValue,
+      image_url: isImage ? iconValue : undefined,
     }
     await recipeApi.create(recipeData)
     closeCreateModal()
@@ -100,10 +101,6 @@ async function createRecipe() {
   } finally {
     creating.value = false
   }
-}
-
-function handleRecipeImageUploaded(data: { url: string }) {
-  newRecipe.value.image_url = data.url
 }
 
 function addIngredient() {
@@ -247,47 +244,12 @@ onMounted(() => {
 
             <div class="form-group">
               <label>アイコン</label>
-              <div class="icon-type-toggle">
-                <button
-                  type="button"
-                  class="toggle-btn"
-                  :class="{ active: !useImageIcon }"
-                  @click="useImageIcon = false"
-                >
-                  絵文字
-                </button>
-                <button
-                  type="button"
-                  class="toggle-btn"
-                  :class="{ active: useImageIcon }"
-                  @click="useImageIcon = true"
-                >
-                  画像
-                </button>
-              </div>
-
-              <div v-if="!useImageIcon" class="emoji-picker">
-                <button
-                  v-for="emoji in emojiOptions"
-                  :key="emoji"
-                  type="button"
-                  class="emoji-btn"
-                  :class="{ selected: newRecipe.image_icon === emoji }"
-                  @click="newRecipe.image_icon = emoji"
-                >
-                  {{ emoji }}
-                </button>
-              </div>
-
-              <div v-else class="image-upload-area">
-                <ImageUpload
-                  v-model="newRecipe.image_url"
-                  type="recipe"
-                  size="large"
-                  placeholder="レシピ画像"
-                  @uploaded="handleRecipeImageUploaded"
-                />
-              </div>
+              <IconPicker
+                v-model="newRecipe.image_icon"
+                type="recipe"
+                :emoji-options="recipeEmojiOptions"
+                size="medium"
+              />
             </div>
 
             <div class="form-group">
@@ -659,66 +621,6 @@ onMounted(() => {
 
 .required {
   color: var(--color-primary);
-}
-
-.icon-type-toggle {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.toggle-btn {
-  flex: 1;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.toggle-btn:hover {
-  border-color: var(--color-primary);
-}
-
-.toggle-btn.active {
-  border-color: var(--color-primary);
-  background: #fff3e0;
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.image-upload-area {
-  margin-bottom: 0.5rem;
-}
-
-.emoji-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.emoji-btn {
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
-  font-size: 1.25rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.emoji-btn:hover {
-  border-color: var(--color-primary);
-  background: #fff3e0;
-}
-
-.emoji-btn.selected {
-  border-color: var(--color-primary);
-  background: #fff3e0;
-  box-shadow: 0 0 0 2px rgba(255, 112, 67, 0.2);
 }
 
 .form-row {

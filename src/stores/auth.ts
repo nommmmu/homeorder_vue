@@ -196,6 +196,24 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function initAuth() {
+    // トークンがない場合は何もしない
+    if (!token.value) return
+
+    try {
+      // トークンの有効性を確認
+      await fetchUser()
+
+      // ユーザー情報が取得できた場合、現在のメンバー情報も取得
+      if (user.value) {
+        await fetchCurrentMember()
+        await refreshMembers()
+      }
+    } catch {
+      // トークンが無効な場合はクリア（fetchUser内で処理済み）
+    }
+  }
+
   return {
     token,
     user,
@@ -213,5 +231,6 @@ export const useAuthStore = defineStore('auth', () => {
     fetchCurrentMember,
     selectMember,
     refreshMembers,
+    initAuth,
   }
 })

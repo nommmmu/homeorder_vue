@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { recipeApi } from '@/api/client'
 import type { Recipe, Ingredient, Step } from '@/types'
-import ImageUpload from '@/components/ImageUpload.vue'
+import IconPicker from '@/components/IconPicker.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -19,7 +19,6 @@ const editRecipe = ref<{
   name: string
   description: string
   image_icon: string
-  image_url: string
   cooking_time: number
   servings: number
   difficulty: 'easy' | 'medium' | 'hard'
@@ -31,7 +30,6 @@ const editRecipe = ref<{
   name: '',
   description: '',
   image_icon: '🍽️',
-  image_url: '',
   cooking_time: 30,
   servings: 2,
   difficulty: 'medium',
@@ -42,9 +40,8 @@ const editRecipe = ref<{
 })
 
 const newTag = ref('')
-const useImageIcon = ref(false)
 
-const emojiOptions = ['🍽️', '🍳', '🍲', '🍜', '🍝', '🍛', '🍣', '🍱', '🥗', '🍔', '🍕', '🥘', '🍰', '🍩', '☕', '🥤']
+const recipeEmojiOptions = ['🍽️', '🍳', '🍲', '🍜', '🍝', '🍛', '🍣', '🍱', '🥗', '🍔', '🍕', '🥘', '🍰', '🍩', '☕', '🥤']
 
 const isFormValid = computed(() => {
   return editRecipe.value.name.trim().length > 0
@@ -91,14 +88,13 @@ async function deleteRecipe() {
 function openEditModal() {
   if (!recipe.value) return
 
-  const hasImage = !!recipe.value.image_url
-  useImageIcon.value = hasImage
+  // image_urlがある場合はそれを使い、なければimage_iconを使う
+  const iconValue = recipe.value.image_url || recipe.value.image_icon || '🍽️'
 
   editRecipe.value = {
     name: recipe.value.name,
     description: recipe.value.description || '',
-    image_icon: recipe.value.image_icon || '🍽️',
-    image_url: recipe.value.image_url || '',
+    image_icon: iconValue,
     cooking_time: recipe.value.cooking_time || 30,
     servings: recipe.value.servings || 2,
     difficulty: recipe.value.difficulty || 'medium',
@@ -123,10 +119,14 @@ async function saveRecipe() {
   editError.value = ''
 
   try {
+    // 画像URLかどうかを判定
+    const iconValue = editRecipe.value.image_icon
+    const isImage = iconValue.startsWith('http') || iconValue.startsWith('/storage/') || iconValue.includes('/')
+
     const recipeData = {
       ...editRecipe.value,
-      image_icon: useImageIcon.value ? undefined : editRecipe.value.image_icon,
-      image_url: useImageIcon.value ? editRecipe.value.image_url : undefined,
+      image_icon: isImage ? undefined : iconValue,
+      image_url: isImage ? iconValue : undefined,
     }
     const response = await recipeApi.update(recipe.value.id, recipeData)
     recipe.value = response.data.data.recipe
@@ -137,10 +137,6 @@ async function saveRecipe() {
   } finally {
     saving.value = false
   }
-}
-
-function handleRecipeImageUploaded(data: { url: string }) {
-  editRecipe.value.image_url = data.url
 }
 
 function addIngredient() {
@@ -297,47 +293,12 @@ onMounted(() => {
 
             <div class="form-group">
               <label>アイコン</label>
-              <div class="icon-type-toggle">
-                <button
-                  type="button"
-                  class="toggle-btn"
-                  :class="{ active: !useImageIcon }"
-                  @click="useImageIcon = false"
-                >
-                  絵文字
-                </button>
-                <button
-                  type="button"
-                  class="toggle-btn"
-                  :class="{ active: useImageIcon }"
-                  @click="useImageIcon = true"
-                >
-                  画像
-                </button>
-              </div>
-
-              <div v-if="!useImageIcon" class="emoji-picker">
-                <button
-                  v-for="emoji in emojiOptions"
-                  :key="emoji"
-                  type="button"
-                  class="emoji-btn"
-                  :class="{ selected: editRecipe.image_icon === emoji }"
-                  @click="editRecipe.image_icon = emoji"
-                >
-                  {{ emoji }}
-                </button>
-              </div>
-
-              <div v-else class="image-upload-area">
-                <ImageUpload
-                  v-model="editRecipe.image_url"
-                  type="recipe"
-                  size="large"
-                  placeholder="レシピ画像"
-                  @uploaded="handleRecipeImageUploaded"
-                />
-              </div>
+              <IconPicker
+                v-model="editRecipe.image_icon"
+                type="recipe"
+                :emoji-options="recipeEmojiOptions"
+                size="medium"
+              />
             </div>
 
             <div class="form-group">
@@ -780,66 +741,6 @@ onMounted(() => {
 
 .required {
   color: var(--color-primary);
-}
-
-.icon-type-toggle {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.toggle-btn {
-  flex: 1;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.toggle-btn:hover {
-  border-color: var(--color-primary);
-}
-
-.toggle-btn.active {
-  border-color: var(--color-primary);
-  background: #fff3e0;
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.image-upload-area {
-  margin-bottom: 0.5rem;
-}
-
-.emoji-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.emoji-btn {
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-card);
-  font-size: 1.25rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.emoji-btn:hover {
-  border-color: var(--color-primary);
-  background: #fff3e0;
-}
-
-.emoji-btn.selected {
-  border-color: var(--color-primary);
-  background: #fff3e0;
-  box-shadow: 0 0 0 2px rgba(255, 112, 67, 0.2);
 }
 
 .form-row {
