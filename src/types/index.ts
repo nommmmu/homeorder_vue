@@ -8,6 +8,16 @@ export interface User {
   created_at: string
 }
 
+export interface Tag {
+  id: string
+  name: string
+  color: string
+  family_id: string | null
+  user_id?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
 export interface Recipe {
   id: string
   user_id: string
@@ -20,7 +30,8 @@ export interface Recipe {
   cooking_time?: number
   servings?: number
   difficulty?: 'easy' | 'medium' | 'hard'
-  tags?: string[]
+  tag_ids?: string[]
+  tags?: Tag[]
   ingredients?: Ingredient[]
   steps?: Step[]
   memo?: string

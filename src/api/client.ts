@@ -1,10 +1,26 @@
 import axios, { type AxiosInstance, type AxiosError } from 'axios'
 
+function serializeParams(params: Record<string, unknown>): string {
+  const parts: string[] = []
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null) continue
+    if (Array.isArray(value)) {
+      value.forEach(v => parts.push(`${encodeURIComponent(key)}[]=${encodeURIComponent(String(v))}`))
+    } else {
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    }
+  }
+  return parts.join('&')
+}
+
 const apiClient: AxiosInstance = axios.create({
   baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+  },
+  paramsSerializer: {
+    serialize: serializeParams as (params: Record<string, unknown>) => string,
   },
 })
 
@@ -56,8 +72,20 @@ export const authApi = {
   me: () => apiClient.get('/user'),
 }
 
+export const tagApi = {
+  list: () => apiClient.get('/tags'),
+
+  create: (data: { name: string; color: string }) =>
+    apiClient.post('/tags', data),
+
+  update: (id: string, data: { name?: string; color?: string }) =>
+    apiClient.put(`/tags/${id}`, data),
+
+  delete: (id: string) => apiClient.delete(`/tags/${id}`),
+}
+
 export const recipeApi = {
-  list: (params?: { page?: number; limit?: number }) =>
+  list: (params?: { page?: number; limit?: number; tag_ids?: string[] }) =>
     apiClient.get('/recipes', { params }),
 
   get: (id: string) => apiClient.get(`/recipes/${id}`),
@@ -72,6 +100,21 @@ export const recipeApi = {
 
   search: (query: string) =>
     apiClient.get('/recipes/search', { params: { q: query } }),
+
+  advancedSearch: (params: {
+    name?: string
+    ingredient?: string
+    tag_ids?: string[]
+    recently_cooked?: string
+  }) =>
+    apiClient.get('/recipes/advanced-search', {
+      params: {
+        name: params.name || undefined,
+        ingredient: params.ingredient || undefined,
+        tag_ids: params.tag_ids?.length ? params.tag_ids : undefined,
+        recently_cooked: params.recently_cooked || undefined,
+      },
+    }),
 
   toggleLike: (id: string) => apiClient.post(`/recipes/${id}/like`),
 }

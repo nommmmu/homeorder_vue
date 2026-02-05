@@ -36,6 +36,18 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresMember: true },
     },
     {
+      path: '/recipes/search',
+      name: 'recipe-search',
+      component: () => import('@/views/RecipeSearchView.vue'),
+      meta: { requiresAuth: true, requiresMember: true },
+    },
+    {
+      path: '/tags',
+      name: 'tags',
+      component: () => import('@/views/TagsView.vue'),
+      meta: { requiresAuth: true, requiresMember: true },
+    },
+    {
       path: '/recipes/:id',
       name: 'recipe-detail',
       component: () => import('@/views/RecipeDetailView.vue'),

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { recipeApi } from '@/api/client'
-import type { Recipe, Pagination, Ingredient, Step } from '@/types'
+import { recipeApi, tagApi } from '@/api/client'
+import type { Recipe, Pagination, Ingredient, Step, Tag } from '@/types'
 import IconPicker from '@/components/IconPicker.vue'
 
 const recipes = ref<Recipe[]>([])
@@ -11,6 +11,9 @@ const searchQuery = ref('')
 const showCreateModal = ref(false)
 const createError = ref('')
 const creating = ref(false)
+const allTags = ref<Tag[]>([])
+const selectedTagIds = ref<string[]>([])
+const loadingTags = ref(false)
 
 const emptyRecipe = () => ({
   name: '',
@@ -21,12 +24,11 @@ const emptyRecipe = () => ({
   difficulty: 'medium' as const,
   ingredients: [] as Ingredient[],
   steps: [] as Step[],
-  tags: [] as string[],
+  tag_ids: [] as string[],
   memo: '',
 })
 
 const newRecipe = ref(emptyRecipe())
-const newTag = ref('')
 
 const recipeEmojiOptions = ['🍽️', '🍳', '🍲', '🍜', '🍝', '🍛', '🍣', '🍱', '🥗', '🍔', '🍕', '🥘', '🍰', '🍩', '☕', '🥤']
 
@@ -34,10 +36,45 @@ const isFormValid = computed(() => {
   return newRecipe.value.name.trim().length > 0
 })
 
+async function loadTags() {
+  loadingTags.value = true
+  try {
+    const response = await tagApi.list()
+    allTags.value = response.data.data.tags || []
+  } catch (error) {
+    console.error('Failed to load tags:', error)
+  } finally {
+    loadingTags.value = false
+  }
+}
+
+function toggleFilterTag(tagId: string) {
+  const index = selectedTagIds.value.indexOf(tagId)
+  if (index >= 0) {
+    selectedTagIds.value.splice(index, 1)
+  } else {
+    selectedTagIds.value.push(tagId)
+  }
+  loadRecipes()
+}
+
+function clearFilterTags() {
+  selectedTagIds.value = []
+  loadRecipes()
+}
+
+function getTagById(tagId: string): Tag | undefined {
+  return allTags.value.find(t => t.id === tagId)
+}
+
 async function loadRecipes(page = 1) {
   loading.value = true
   try {
-    const response = await recipeApi.list({ page, limit: 12 })
+    const params: { page: number; limit: number; tag_ids?: string[] } = { page, limit: 12 }
+    if (selectedTagIds.value.length > 0) {
+      params.tag_ids = selectedTagIds.value
+    }
+    const response = await recipeApi.list(params)
     recipes.value = response.data.data.items || []
     pagination.value = response.data.data.pagination
   } catch (error) {
@@ -123,16 +160,13 @@ function removeStep(index: number) {
   })
 }
 
-function addTag() {
-  const tag = newTag.value.trim()
-  if (tag && !newRecipe.value.tags.includes(tag)) {
-    newRecipe.value.tags.push(tag)
-    newTag.value = ''
+function toggleRecipeTag(tagId: string) {
+  const index = newRecipe.value.tag_ids.indexOf(tagId)
+  if (index >= 0) {
+    newRecipe.value.tag_ids.splice(index, 1)
+  } else {
+    newRecipe.value.tag_ids.push(tagId)
   }
-}
-
-function removeTag(index: number) {
-  newRecipe.value.tags.splice(index, 1)
 }
 
 async function toggleLike(recipe: Recipe) {
@@ -147,6 +181,7 @@ async function toggleLike(recipe: Recipe) {
 
 onMounted(() => {
   loadRecipes()
+  loadTags()
 })
 </script>
 
@@ -166,6 +201,27 @@ onMounted(() => {
         placeholder="レシピを検索..."
         @input="searchRecipes"
       />
+    </div>
+
+    <div v-if="allTags.length > 0" class="tag-filter">
+      <button
+        class="tag-chip"
+        :class="{ active: selectedTagIds.length === 0 }"
+        @click="clearFilterTags"
+      >
+        すべて
+      </button>
+      <button
+        v-for="tag in allTags"
+        :key="tag.id"
+        class="tag-chip"
+        :class="{ active: selectedTagIds.includes(tag.id) }"
+        :style="selectedTagIds.includes(tag.id) ? { backgroundColor: tag.color, borderColor: tag.color } : { borderColor: tag.color, color: tag.color }"
+        @click="toggleFilterTag(tag.id)"
+      >
+        <span class="tag-chip-dot" :style="{ backgroundColor: selectedTagIds.includes(tag.id) ? '#fff' : tag.color }"></span>
+        {{ tag.name }}
+      </button>
     </div>
 
     <div v-if="loading" class="loading">
@@ -196,6 +252,17 @@ onMounted(() => {
           <p v-if="recipe.description" class="recipe-description">
             {{ recipe.description }}
           </p>
+          <div v-if="recipe.tags && recipe.tags.length > 0" class="recipe-tags">
+            <span
+              v-for="tag in recipe.tags"
+              :key="tag.id"
+              class="recipe-tag"
+              :style="{ backgroundColor: tag.color + '20', color: tag.color, borderColor: tag.color + '40' }"
+            >
+              <span class="recipe-tag-dot" :style="{ backgroundColor: tag.color }"></span>
+              {{ tag.name }}
+            </span>
+          </div>
           <div class="recipe-meta">
             <span v-if="recipe.cooking_time">⏱️ {{ recipe.cooking_time }}分</span>
             <span v-if="recipe.servings">👥 {{ recipe.servings }}人前</span>
@@ -380,22 +447,27 @@ onMounted(() => {
           <!-- Tags -->
           <div class="form-section">
             <h4>タグ</h4>
-            <div class="tag-input-row">
-              <input
-                v-model="newTag"
-                type="text"
-                placeholder="タグを入力"
-                @keydown.enter.prevent="addTag"
-              />
-              <button type="button" @click="addTag" class="btn btn-sm btn-secondary">
-                追加
+            <div v-if="allTags.length > 0" class="tag-select-list">
+              <button
+                v-for="tag in allTags"
+                :key="tag.id"
+                type="button"
+                class="tag-select-chip"
+                :class="{ selected: newRecipe.tag_ids.includes(tag.id) }"
+                :style="newRecipe.tag_ids.includes(tag.id)
+                  ? { backgroundColor: tag.color, borderColor: tag.color, color: '#fff' }
+                  : { borderColor: tag.color + '80', color: tag.color }"
+                @click="toggleRecipeTag(tag.id)"
+              >
+                <span
+                  class="tag-select-dot"
+                  :style="{ backgroundColor: newRecipe.tag_ids.includes(tag.id) ? '#fff' : tag.color }"
+                ></span>
+                {{ tag.name }}
               </button>
             </div>
-            <div v-if="newRecipe.tags.length > 0" class="tags-list">
-              <span v-for="(tag, index) in newRecipe.tags" :key="index" class="tag">
-                {{ tag }}
-                <button type="button" @click="removeTag(index)" class="tag-remove">&times;</button>
-              </span>
+            <div v-else class="empty-hint">
+              <RouterLink to="/tags">タグ管理</RouterLink>からタグを作成してください
             </div>
           </div>
 
@@ -455,6 +527,53 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(255, 112, 67, 0.15);
 }
 
+.tag-filter {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tag-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.tag-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-card);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.tag-chip:hover {
+  opacity: 0.85;
+}
+
+.tag-chip.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff !important;
+}
+
+.tag-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .recipe-card {
   text-decoration: none;
   color: inherit;
@@ -500,6 +619,30 @@ onMounted(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.recipe-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.recipe-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.recipe-tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
 }
 
 .recipe-meta {
@@ -659,6 +802,11 @@ onMounted(() => {
   border-radius: var(--radius-sm);
 }
 
+.empty-hint a {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
 /* Ingredient rows */
 .ingredient-row {
   display: grid;
@@ -735,46 +883,36 @@ onMounted(() => {
   color: var(--color-error);
 }
 
-/* Tags */
-.tag-input-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.tag-input-row input {
-  flex: 1;
-}
-
-.tags-list {
+/* Tag select */
+.tag-select-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.tag {
+.tag-select-chip {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.625rem;
-  background: #fff3e0;
-  color: var(--color-primary-dark);
-  border-radius: var(--radius-sm);
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border: 1.5px solid;
+  border-radius: var(--radius-full);
+  background: transparent;
   font-size: 0.8125rem;
-}
-
-.tag-remove {
-  background: none;
-  border: none;
-  color: var(--color-primary);
+  font-weight: 500;
   cursor: pointer;
-  padding: 0;
-  font-size: 1rem;
-  line-height: 1;
+  transition: all 0.15s ease;
 }
 
-.tag-remove:hover {
-  color: var(--color-primary-dark);
+.tag-select-chip:hover {
+  opacity: 0.8;
+}
+
+.tag-select-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .modal-actions {

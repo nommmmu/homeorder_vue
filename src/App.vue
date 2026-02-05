@@ -30,6 +30,18 @@ const isImageAvatar = computed(() => {
         <template v-if="authStore.isAuthenticated && authStore.hasSelectedMember">
           <RouterLink to="/">ホーム</RouterLink>
           <RouterLink to="/recipes">レシピ</RouterLink>
+          <RouterLink to="/tags" class="tags-link" title="タグ管理">
+            <svg class="tags-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+          </RouterLink>
+          <RouterLink to="/recipes/search" class="search-link" title="レシピ検索">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </RouterLink>
           <RouterLink to="/meal-plans">献立</RouterLink>
           <RouterLink to="/requests">リクエスト</RouterLink>
           <RouterLink to="/member-select" class="member-link">
@@ -170,6 +182,48 @@ nav a.router-link-active {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tags-link {
+  padding: 0.5rem !important;
+  color: #757575 !important;
+  margin-left: -0.5rem;
+}
+
+.tags-link:hover {
+  color: #ff7043 !important;
+  background: #fff3e0 !important;
+}
+
+.tags-link.router-link-active {
+  color: #ff7043 !important;
+  background: #fff3e0 !important;
+}
+
+.tags-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.search-link {
+  padding: 0.5rem !important;
+  color: #757575 !important;
+  margin-left: -0.5rem;
+}
+
+.search-link:hover {
+  color: #ff7043 !important;
+  background: #fff3e0 !important;
+}
+
+.search-link.router-link-active {
+  color: #ff7043 !important;
+  background: #fff3e0 !important;
+}
+
+.search-icon {
+  width: 18px;
+  height: 18px;
 }
 
 .settings-link {
